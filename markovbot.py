@@ -57,6 +57,9 @@ class User(Base):
                 word_map[key].append(following)
             
         # Pick a starting word
+        if len(word_map.keys()) == 0:
+            return "Sorry bro, not enough data"
+
         start = random.choice(word_map.keys())
         generated = [start]
 
