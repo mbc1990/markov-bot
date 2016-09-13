@@ -10,6 +10,7 @@ from sqlalchemy import Column, ForeignKey, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy import create_engine
+from bot_settings import BOT_ID, SLACK_BOT_TOKEN
 
 Base = declarative_base()
 
@@ -87,7 +88,6 @@ class Bigram(Base):
 
 class MarkovBot():
     DB_NAME = 'markovbot.db'
-    BOT_ID = os.environ.get("BOT_ID")
     AT_BOT = "<@" + BOT_ID + ">"
     
     def __init__(self):
@@ -118,7 +118,7 @@ class MarkovBot():
                     print "Text: "+text
 
                     # Don't model yourself 
-                    if self.BOT_ID == output['user']:
+                    if BOT_ID == output['user']:
                         return
 
                     if self.AT_BOT in text:
@@ -159,11 +159,11 @@ class MarkovBot():
     def connect_slack(self):
         
         # Connect to regular API
-        self.slack = Slacker(os.environ.get('SLACK_BOT_TOKEN'))
+        self.slack = Slacker(SLACK_BOT_TOKEN)
         
         # Connect to real time API
-        bot_id = os.environ.get("BOT_ID")
-        self.slack_client = SlackClient(os.environ.get('SLACK_BOT_TOKEN'))
+        bot_id = BOT_ID
+        self.slack_client = SlackClient(SLACK_BOT_TOKEN)
         READ_WEBSOCKET_DELAY = 1 # 1 second delay between reading from firehose
         if self.slack_client.rtm_connect():
             print("MarkovBot connected and running!")
