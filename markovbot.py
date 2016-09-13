@@ -1,7 +1,8 @@
-
 import os
+import random
 import time
 from slackclient import SlackClient
+from collections import defaultdict
 
 from sqlalchemy import Column, ForeignKey, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
@@ -15,6 +16,8 @@ class User(Base):
  
     id = Column(Integer, primary_key=True)
     username = Column(String)
+
+    MAX_GEN_LEN = 10
  
     def __init__(self, username):
         """"""
@@ -38,8 +41,27 @@ class User(Base):
             session.add(bg)
             session.commit()
 
-    def generate_message(self):
-        pass
+    def generate_message(self, session):
+        # Build the map out of saved bigrams
+        word_map = defaultdict(list) 
+        bigrams = session.query(Bigram).filter(Bigram.user_id==self.id)
+        for bg in bigrams:
+            key = bg.word_a
+            following = bg.word_b
+            for i in range(0,bg.count):
+                word_map[key].append(following)
+            
+        # Pick a starting word
+        start = random.choice(word_map.keys())
+        generated = [start]
+
+        # TODO: Sentence start/end tokens 
+        while start in word_map.keys() and len(generated) < self.MAX_GEN_LEN:
+            next_word = random.choice(word_map[start])
+            generated.append(next_word)
+            start = next_word
+        
+        return ' '.join(generated)
 
 # sqlalchemy models
 class Bigram(Base):
@@ -58,10 +80,6 @@ class Bigram(Base):
         self.word_a = word_a 
         self.word_b = word_b 
         self.count = initial_count
-
-def tokenize(message):
-    # split message, remove case, return arr of strings
-    pass
 
 class MarkovBot():
     DB_NAME = 'markovbot.db'
@@ -84,15 +102,16 @@ class MarkovBot():
         users = self.session.query(User).filter(User.username=="testuser")
         for u in users:
             print "User: "+u.username
-            u.add_message("this is a test message", self.session)
+            print u.generate_message(self.session)
+            #u.add_message("this is a test message", self.session)
         
         # print all bigrams
+        '''
         bigrams = self.session.query(Bigram)
         print "printing "+str(bigrams.count())+" bigrams"
         for b in bigrams:
             print b.word_a+' '+b.word_b+' '+str(b.count)
-
-
+        '''
         # TODO: Initialize markov models for all users    
 
     def init_db(self):
