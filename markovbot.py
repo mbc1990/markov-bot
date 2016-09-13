@@ -21,7 +21,7 @@ class User(Base):
     username = Column(String)
     slack_user_id = Column(String)
 
-    MAX_GEN_LEN = 10
+    MAX_GEN_LEN = 25
  
     def __init__(self, username, slack_user_id):
         """"""
