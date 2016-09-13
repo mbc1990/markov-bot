@@ -148,7 +148,7 @@ class MarkovBot():
                             if user.count():
                                 print "Generating text..."
                                 user = user.one()
-                                gen = user.generate_message(self.engine)        
+                                gen = user.generate_message(self.engine)+" ("+uname+")"
                                 self.slack_client.api_call("chat.postMessage", channel=output['channel'], text=gen, as_user=True)
                         else:
                             pass
