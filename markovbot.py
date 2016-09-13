@@ -91,40 +91,11 @@ class MarkovBot():
     AT_BOT = "<@" + BOT_ID + ">"
     
     def __init__(self):
-        
-        # TODO: Connect to slack
-
         if not os.path.exists(self.DB_NAME):
             print "initializing db"
             self.init_db()
-
         self.connect_db()
         self.connect_slack()
-        # create user
-
-        '''
-        user = User("testuser")
-        self.session.add(user)
-        self.session.commit()
-        '''
-
-        # print users
-        '''
-        users = self.session.query(User).filter(User.username=="testuser")
-        for u in users:
-            print "User: "+u.username
-            print u.generate_message(self.session)
-            #u.add_message("this is a test message", self.session)
-        '''
-        
-        # print all bigrams
-        '''
-        bigrams = self.session.query(Bigram)
-        print "printing "+str(bigrams.count())+" bigrams"
-        for b in bigrams:
-            print b.word_a+' '+b.word_b+' '+str(b.count)
-        '''
-        # TODO: Initialize markov models for all users    
     
     def create_user(self, user_id):
         print "Creating user for "+str(user_id)
