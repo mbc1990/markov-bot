@@ -29,7 +29,10 @@ class User(Base):
         self.slack_user_id = slack_user_id
     
     def add_message(self, message, engine):
-        print "Adding message: "+message
+        try:
+            print "Adding message: "+message
+        except:
+            pass
         lower = message.lower()
         spl = lower.split(' ')
         Session = sessionmaker(bind=engine)
