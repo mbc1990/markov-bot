@@ -119,7 +119,7 @@ class MarkovBot():
                 if output and 'text' in output and 'user' in output:
                     text = output['text']
                     try:
-                        print "Text: "+text.
+                        print "Text: "+text
                     except:
                         pass
 
