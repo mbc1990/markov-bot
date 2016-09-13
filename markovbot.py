@@ -37,6 +37,17 @@ class User(Base):
         spl = lower.split(' ')
         Session = sessionmaker(bind=engine)
         session = Session()
+        
+        # Message start token
+        exists = session.query(Bigram).filter(Bigram.word_a=='\S', Bigram.word_b==spl[0], Bigram.user_id==self.id)
+        if exists.count():
+            bg = exists.first()
+            bg.count = bg.count+1 
+        else:
+            bg = Bigram(self.id, '\S', spl[0], 1)
+        session.add(bg)
+        
+        # Rest of message
         for i in range(0, len(spl)-1):
             word_a = spl[i]
             word_b = spl[i+1]
