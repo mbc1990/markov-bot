@@ -1,7 +1,9 @@
 import os
 import random
 import time
+import requests
 from slackclient import SlackClient
+from slacker import Slacker
 from collections import defaultdict
 
 from sqlalchemy import Column, ForeignKey, Integer, String
@@ -16,12 +18,14 @@ class User(Base):
  
     id = Column(Integer, primary_key=True)
     username = Column(String)
+    slack_user_id = Column(String)
 
     MAX_GEN_LEN = 10
  
-    def __init__(self, username):
+    def __init__(self, username, slack_user_id):
         """"""
         self.username = username
+        self.slack_user_id = slack_user_id
     
     def add_message(self, message, session):
         print "Adding message: "+message
@@ -85,13 +89,17 @@ class MarkovBot():
     DB_NAME = 'markovbot.db'
     
     def __init__(self):
+        
         # TODO: Connect to slack
 
         if not os.path.exists(self.DB_NAME):
+            print "initializing db"
             self.init_db()
 
         self.connect_db()
+        self.connect_slack()
         # create user
+
         '''
         user = User("testuser")
         self.session.add(user)
@@ -99,11 +107,13 @@ class MarkovBot():
         '''
 
         # print users
+        '''
         users = self.session.query(User).filter(User.username=="testuser")
         for u in users:
             print "User: "+u.username
             print u.generate_message(self.session)
             #u.add_message("this is a test message", self.session)
+        '''
         
         # print all bigrams
         '''
@@ -113,6 +123,32 @@ class MarkovBot():
             print b.word_a+' '+b.word_b+' '+str(b.count)
         '''
         # TODO: Initialize markov models for all users    
+    
+    def create_user(self, user_id):
+        print "Creating user for "+str(user_id)
+        response = self.slack.users.list()
+        users = response.body['members']
+        for u in users:
+            if u['id'] == user_id:
+                user = User(u['name'], user_id)
+                self.session.add(user)
+                self.session.commit()
+                return user
+                                
+    def parse_slack_output(self, slack_rtm_output):
+        output_list = slack_rtm_output
+        print output_list
+        if output_list and len(output_list) > 0:
+            for output in output_list:
+                if output and 'text' in output:
+                    text = output['text']
+                    userid = output['user']
+                    user = self.session.query(User).filter(User.slack_user_id==userid)
+                    if not user.count():
+                        user = self.create_user(userid)
+                    else:
+                        user = user.one()
+                    user.add_message(text, self.session)
 
     def init_db(self):
         print "Creating database"
@@ -125,10 +161,23 @@ class MarkovBot():
         Session = sessionmaker(bind=engine)
         self.session = Session()
 
-    def init_models(self):
-        # instantiate instances of MarkovModel for each user 
-        print "Initializing instances"
-        pass
+    def connect_slack(self):
+        
+        # Connect to regular API
+        self.slack = Slacker(os.environ.get('SLACK_BOT_TOKEN'))
+        
+        # Connect to real time API
+        bot_id = os.environ.get("BOT_ID")
+        slack_client = SlackClient(os.environ.get('SLACK_BOT_TOKEN'))
+        READ_WEBSOCKET_DELAY = 1 # 1 second delay between reading from firehose
+        if slack_client.rtm_connect():
+            print("MarkovBot connected and running!")
+            while True:
+                self.parse_slack_output(slack_client.rtm_read())
+                time.sleep(READ_WEBSOCKET_DELAY)
+        else:
+            print("Connection failed. Invalid Slack token or bot ID?")
+
 
 def main():
     MarkovBot()    
