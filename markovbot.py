@@ -118,7 +118,10 @@ class MarkovBot():
             for output in output_list:
                 if output and 'text' in output and 'user' in output:
                     text = output['text']
-                    print "Text: "+text
+                    try:
+                        print "Text: "+text.
+                    except:
+                        pass
 
                     # Don't model yourself 
                     if BOT_ID == output['user']:
