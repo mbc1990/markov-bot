@@ -28,10 +28,12 @@ class User(Base):
         self.username = username
         self.slack_user_id = slack_user_id
     
-    def add_message(self, message, session):
+    def add_message(self, message, engine):
         print "Adding message: "+message
         lower = message.lower()
         spl = lower.split(' ')
+        Session = sessionmaker(bind=engine)
+        session = Session()
         for i in range(0, len(spl)-1):
             word_a = spl[i]
             word_b = spl[i+1]
@@ -44,10 +46,12 @@ class User(Base):
             else:
                 bg = Bigram(self.id, word_a, word_b, 1)
             session.add(bg)
-            session.commit()
+        session.commit()
 
-    def generate_message(self, session):
+    def generate_message(self, engine):
         # Build the map out of saved bigrams
+        Session = sessionmaker(bind=engine)
+        session = Session()
         word_map = defaultdict(list) 
         bigrams = session.query(Bigram).filter(Bigram.user_id==self.id)
         for bg in bigrams:
@@ -101,19 +105,23 @@ class MarkovBot():
         self.connect_slack()
     
     def create_user(self, user_id):
+        Session = sessionmaker(bind=self.engine)
+        session = Session()
         print "Creating user for "+str(user_id)
         response = self.slack.users.list()
         users = response.body['members']
         for u in users:
             if u['id'] == user_id:
                 user = User(u['name'], user_id)
-                self.session.add(user)
-                self.session.commit()
+                session.add(user)
+                session.commit()
                 return user
                                 
     def parse_slack_output(self, slack_rtm_output):
         output_list = slack_rtm_output
         print output_list
+        Session = sessionmaker(bind=self.engine)
+        session = Session()
         if output_list and len(output_list) > 0:
             for output in output_list:
                 if output and 'text' in output and 'user' in output:
@@ -133,23 +141,23 @@ class MarkovBot():
                         if len(parsed) == 2:
                             uname = parsed[1]
                             print "parsed name: "+uname
-                            user = self.session.query(User).filter(User.username==uname)
+                            user = session.query(User).filter(User.username==uname)
                             if user.count():
                                 print "Generating text..."
                                 user = user.one()
-                                gen = user.generate_message(self.session)        
+                                gen = user.generate_message(self.engine)        
                                 self.slack_client.api_call("chat.postMessage", channel=output['channel'], text=gen, as_user=True)
                         else:
                             pass
                             # TODO: Error handling?
                     else:
                         userid = output['user']
-                        user = self.session.query(User).filter(User.slack_user_id==userid)
+                        user = session.query(User).filter(User.slack_user_id==userid)
                         if not user.count():
                             user = self.create_user(userid)
                         else:
                             user = user.one()
-                        user.add_message(text, self.session)
+                        user.add_message(text, self.engine)
 
     def init_db(self):
         print "Creating database"
@@ -158,9 +166,7 @@ class MarkovBot():
 
     def connect_db(self):
         print "Connecting to database"
-        engine = create_engine('sqlite:///'+self.DB_NAME, echo=False)
-        Session = sessionmaker(bind=engine)
-        self.session = Session()
+        self.engine = create_engine('sqlite:///'+self.DB_NAME, echo=False)
 
     def connect_slack(self):
         
