@@ -87,6 +87,8 @@ class Bigram(Base):
 
 class MarkovBot():
     DB_NAME = 'markovbot.db'
+    BOT_ID = os.environ.get("BOT_ID")
+    AT_BOT = "<@" + BOT_ID + ">"
     
     def __init__(self):
         
@@ -142,13 +144,35 @@ class MarkovBot():
             for output in output_list:
                 if output and 'text' in output:
                     text = output['text']
-                    userid = output['user']
-                    user = self.session.query(User).filter(User.slack_user_id==userid)
-                    if not user.count():
-                        user = self.create_user(userid)
+                    print "Text: "+text
+
+                    # Don't model yourself 
+                    if self.BOT_ID == output['user']:
+                        return
+
+                    if self.AT_BOT in text:
+                        print "responding..."
+                        parsed = text.split(' ')
+                        if len(parsed) == 2:
+                            uname = parsed[1]
+                            print "parsed name: "+uname
+                            user = self.session.query(User).filter(User.username==uname)
+                            if user.count():
+                                print "Generating text..."
+                                user = user.one()
+                                gen = user.generate_message(self.session)        
+                                self.slack_client.api_call("chat.postMessage", channel=output['channel'], text=gen, as_user=True)
+                        else:
+                            pass
+                            # TODO: Error handling?
                     else:
-                        user = user.one()
-                    user.add_message(text, self.session)
+                        userid = output['user']
+                        user = self.session.query(User).filter(User.slack_user_id==userid)
+                        if not user.count():
+                            user = self.create_user(userid)
+                        else:
+                            user = user.one()
+                        user.add_message(text, self.session)
 
     def init_db(self):
         print "Creating database"
@@ -168,12 +192,12 @@ class MarkovBot():
         
         # Connect to real time API
         bot_id = os.environ.get("BOT_ID")
-        slack_client = SlackClient(os.environ.get('SLACK_BOT_TOKEN'))
+        self.slack_client = SlackClient(os.environ.get('SLACK_BOT_TOKEN'))
         READ_WEBSOCKET_DELAY = 1 # 1 second delay between reading from firehose
-        if slack_client.rtm_connect():
+        if self.slack_client.rtm_connect():
             print("MarkovBot connected and running!")
             while True:
-                self.parse_slack_output(slack_client.rtm_read())
+                self.parse_slack_output(self.slack_client.rtm_read())
                 time.sleep(READ_WEBSOCKET_DELAY)
         else:
             print("Connection failed. Invalid Slack token or bot ID?")
