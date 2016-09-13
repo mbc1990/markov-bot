@@ -113,7 +113,7 @@ class MarkovBot():
         print output_list
         if output_list and len(output_list) > 0:
             for output in output_list:
-                if output and 'text' in output:
+                if output and 'text' in output and 'user' in output:
                     text = output['text']
                     print "Text: "+text
 
