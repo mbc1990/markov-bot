@@ -48,9 +48,12 @@ class User(Base):
         session.add(bg)
         
         # Rest of message
-        for i in range(0, len(spl)-1):
+        for i in range(0, len(spl)):
             word_a = spl[i]
-            word_b = spl[i+1]
+            if i == len(spl)-1:
+                word_b = '\E'
+            else:
+                word_b = spl[i+1]
 
             # TODO: Don't do these queries in a loop
             exists = session.query(Bigram).filter(Bigram.word_a==word_a, Bigram.word_b==word_b, Bigram.user_id==self.id)
@@ -88,6 +91,12 @@ class User(Base):
 
         while start in word_map.keys() and len(generated) < self.MAX_GEN_LEN:
             next_word = random.choice(word_map[start])
+
+            # short circuit if we happen to reach a message ending token 
+            if next_word == '\E':
+                return ' '.join(generated)
+
+            # otherwise continue
             generated.append(next_word)
             start = next_word
         
