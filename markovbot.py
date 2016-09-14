@@ -170,7 +170,7 @@ class MarkovBot():
                         if len(parsed) == 2:
                             uname = parsed[1]
                             print "parsed name: "+uname
-                            user = session.query(User).filter(User.username==uname)
+                            user = session.query(User).filter(User.username==uname.replace('~',''))
                             if user.count():
                                 print "Generating text..."
                                 user = user.one()
