@@ -74,14 +74,18 @@ class User(Base):
             for i in range(0,bg.count):
                 word_map[key].append(following)
             
-        # Pick a starting word
+        # User exists but no corpus, return emtpy string sorry 
         if len(word_map.keys()) == 0:
-            return "Sorry bro, not enough data"
+            return ""
 
-        start = random.choice(word_map.keys())
+        if '\S' in word_map.keys():
+            start = random.choice(word_map['\S'])
+        else:
+            # TODO deprecate
+            start = random.choice(word_map.keys())
+
         generated = [start]
 
-        # TODO: Sentence start/end tokens 
         while start in word_map.keys() and len(generated) < self.MAX_GEN_LEN:
             next_word = random.choice(word_map[start])
             generated.append(next_word)
