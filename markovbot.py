@@ -215,6 +215,8 @@ class MarkovBot():
                                     print "Generating text..."
                                     user = user.one()
                                     gen = uname+': '+user.generate_message(self.engine)
+                                else:
+                                    gen = "Unknown user: "+uname
 
                             self.slack_client.api_call("chat.postMessage", channel=output['channel'], text=gen, as_user=True)
                         else:
