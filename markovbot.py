@@ -133,6 +133,43 @@ class MarkovBot():
             self.init_db()
         self.connect_db()
         self.connect_slack()
+
+    def generate_from_all(self):
+        Session = sessionmaker(bind=self.engine)
+        session = Session()
+        word_map = defaultdict(list) 
+        bigrams = session.query(Bigram)
+        for bg in bigrams:
+            key = bg.word_a
+            following = bg.word_b
+            for i in range(0,bg.count):
+                word_map[key].append(following)
+            
+        # User exists but no corpus, return emtpy string sorry 
+        if len(word_map.keys()) == 0:
+            return ""
+
+        if '\S' in word_map.keys():
+            start = random.choice(word_map['\S'])
+        else:
+            # TODO deprecate
+            start = random.choice(word_map.keys())
+
+        generated = [start]
+
+        while start in word_map.keys() and len(generated) < User.MAX_GEN_LEN:
+            next_word = random.choice(word_map[start])
+
+            # short circuit if we happen to reach a message ending token 
+            if next_word == '\E':
+                return ' '.join(generated)
+
+            # otherwise continue
+            generated.append(next_word)
+            start = next_word
+        
+        return ' '.join(generated)
+        
     
     def create_user(self, user_id):
         Session = sessionmaker(bind=self.engine)
@@ -169,13 +206,17 @@ class MarkovBot():
                         parsed = text.split(' ')
                         if len(parsed) == 2:
                             uname = parsed[1]
-                            print "parsed name: "+uname
-                            user = session.query(User).filter(User.username==uname.replace('~',''))
-                            if user.count():
-                                print "Generating text..."
-                                user = user.one()
-                                gen = uname+': '+user.generate_message(self.engine)
-                                self.slack_client.api_call("chat.postMessage", channel=output['channel'], text=gen, as_user=True)
+                            if uname == "-all":
+                                gen = "All: "+self.generate_from_all()
+                            else:
+                                print "parsed name: "+uname
+                                user = session.query(User).filter(User.username==uname.replace('~',''))
+                                if user.count():
+                                    print "Generating text..."
+                                    user = user.one()
+                                    gen = uname+': '+user.generate_message(self.engine)
+
+                            self.slack_client.api_call("chat.postMessage", channel=output['channel'], text=gen, as_user=True)
                         else:
                             pass
                             # TODO: Error handling?

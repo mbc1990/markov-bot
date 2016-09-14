@@ -2,7 +2,7 @@
 Slack bot that regurgitates peoples own words back at them
 
 TODO:
- - More sophisticated tokenization in general using an external tokenizer that can handle punctuation nicely 
+ - Refactor copy and pasted all flag code
  - Change bot argument syntax so that you can see somebody's generated text without notifying them on slack
  - Better error handling
  - Length of generated text as argument instead of constant
