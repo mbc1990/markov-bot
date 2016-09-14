@@ -2,14 +2,16 @@ import os
 import random
 import time
 import requests
-from slackclient import SlackClient
-from slacker import Slacker
 from collections import defaultdict
 
+from slackclient import SlackClient
+from slacker import Slacker
 from sqlalchemy import Column, ForeignKey, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy import create_engine
+from nltk.tokenize import TweetTokenizer
+
 from bot_settings import BOT_ID, SLACK_BOT_TOKEN
 
 Base = declarative_base()
@@ -34,7 +36,8 @@ class User(Base):
         except:
             pass
         lower = message.lower()
-        spl = lower.split(' ')
+        tk = TweetTokenizer()
+        spl = tk.tokenize(lower)
         Session = sessionmaker(bind=engine)
         session = Session()
         
@@ -146,7 +149,6 @@ class MarkovBot():
                                 
     def parse_slack_output(self, slack_rtm_output):
         output_list = slack_rtm_output
-        print output_list
         Session = sessionmaker(bind=self.engine)
         session = Session()
         if output_list and len(output_list) > 0:
