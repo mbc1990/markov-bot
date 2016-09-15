@@ -31,10 +31,6 @@ class User(Base):
         self.slack_user_id = slack_user_id
     
     def add_message(self, message, engine):
-        try:
-            print "Adding message: "+message
-        except:
-            pass
         lower = message.lower()
         tk = TweetTokenizer()
         spl = tk.tokenize(lower)
@@ -68,44 +64,6 @@ class User(Base):
             session.add(bg)
         session.commit()
 
-    def generate_message(self, engine):
-        # Build the map out of saved bigrams
-        Session = sessionmaker(bind=engine)
-        session = Session()
-        word_map = defaultdict(list) 
-        bigrams = session.query(Bigram).filter(Bigram.user_id==self.id)
-        for bg in bigrams:
-            key = bg.word_a
-            following = bg.word_b
-            for i in range(0,bg.count):
-                word_map[key].append(following)
-            
-        # User exists but no corpus, return emtpy string sorry 
-        if len(word_map.keys()) == 0:
-            return ""
-
-        if '\S' in word_map.keys():
-            start = random.choice(word_map['\S'])
-        else:
-            # TODO deprecate
-            start = random.choice(word_map.keys())
-
-        generated = [start]
-
-        while start in word_map.keys() and len(generated) < self.MAX_GEN_LEN:
-            next_word = random.choice(word_map[start])
-
-            # short circuit if we happen to reach a message ending token 
-            if next_word == '\E':
-                return ' '.join(generated)
-
-            # otherwise continue
-            generated.append(next_word)
-            start = next_word
-        
-        return ' '.join(generated)
-
-# sqlalchemy models
 class Bigram(Base):
     """"""
     __tablename__ = "bigram"
@@ -128,17 +86,21 @@ class MarkovBot():
     AT_BOT = "<@" + BOT_ID + ">"
     
     def __init__(self):
+        # sqlite
         if not os.path.exists(self.DB_NAME):
-            print "initializing db"
             self.init_db()
         self.connect_db()
         self.connect_slack()
 
-    def generate_from_all(self):
+    def generate_message(self, user=None):
         Session = sessionmaker(bind=self.engine)
         session = Session()
         word_map = defaultdict(list) 
-        bigrams = session.query(Bigram)
+        if user:
+            bigrams = session.query(Bigram).filter(Bigram.user_id==user.id)
+        else:
+            bigrams = session.query(Bigram)
+            
         for bg in bigrams:
             key = bg.word_a
             following = bg.word_b
@@ -169,12 +131,10 @@ class MarkovBot():
             start = next_word
         
         return ' '.join(generated)
-        
-    
+                
     def create_user(self, user_id):
         Session = sessionmaker(bind=self.engine)
         session = Session()
-        print "Creating user for "+str(user_id)
         response = self.slack.users.list()
         users = response.body['members']
         for u in users:
@@ -184,37 +144,29 @@ class MarkovBot():
                 session.commit()
                 return user
                                 
-    def parse_slack_output(self, slack_rtm_output):
-        output_list = slack_rtm_output
+    def parse_slack_output(self, output_list):
         Session = sessionmaker(bind=self.engine)
         session = Session()
         if output_list and len(output_list) > 0:
             for output in output_list:
                 if output and 'text' in output and 'user' in output:
                     text = output['text']
-                    try:
-                        print "Text: "+text
-                    except:
-                        pass
 
                     # Don't model yourself 
                     if BOT_ID == output['user']:
                         return
 
                     if self.AT_BOT in text:
-                        print "responding..."
                         parsed = text.split(' ')
                         if len(parsed) == 2:
                             uname = parsed[1]
                             if uname == "-all":
-                                gen = "All: "+self.generate_from_all()
+                                gen = "All: "+self.generate_message()
                             else:
-                                print "parsed name: "+uname
                                 user = session.query(User).filter(User.username==uname.replace('~',''))
                                 if user.count():
-                                    print "Generating text..."
                                     user = user.one()
-                                    gen = uname+': '+user.generate_message(self.engine)
+                                    gen = uname+': '+self.generate_message(user=user)
                                 else:
                                     gen = "Unknown user: "+uname
 
@@ -232,12 +184,10 @@ class MarkovBot():
                         user.add_message(text, self.engine)
 
     def init_db(self):
-        print "Creating database"
         engine = create_engine('sqlite:///'+self.DB_NAME, echo=False)
         Base.metadata.create_all(engine)
 
     def connect_db(self):
-        print "Connecting to database"
         self.engine = create_engine('sqlite:///'+self.DB_NAME, echo=False)
 
     def connect_slack(self):
@@ -250,13 +200,12 @@ class MarkovBot():
         self.slack_client = SlackClient(SLACK_BOT_TOKEN)
         READ_WEBSOCKET_DELAY = 1 # 1 second delay between reading from firehose
         if self.slack_client.rtm_connect():
-            print("MarkovBot connected and running!")
+            print "markovbot is alive"
             while True:
                 self.parse_slack_output(self.slack_client.rtm_read())
                 time.sleep(READ_WEBSOCKET_DELAY)
         else:
-            print("Connection failed. Invalid Slack token or bot ID?")
-
+            print "markovbot is dead"
 
 def main():
     MarkovBot()    
