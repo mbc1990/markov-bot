@@ -143,6 +143,51 @@ class MarkovBot():
                 session.add(user)
                 session.commit()
                 return user
+
+    def handle_summon(self, output):
+        Session = sessionmaker(bind=self.engine)
+        session = Session()
+        user_id = 
+
+        response = self.slack.users.list()
+        users = response.body['members']
+        for u in users:
+            if u['id'] == user_id:
+                user = User(u['name'], user_id)
+                session.add(user)
+                session.commit()
+                # TODO: Construct message
+        text = output['text'] 
+        parsed = text.split(' ')
+
+        if len(parsed) == 2:
+            uname = parsed[1]
+            if uname == "-all":
+                gen = "All: "+self.generate_message()
+            else:
+                user = session.query(User).filter(User.username==uname.replace('~',''))
+                if user.count():
+                    user = user.one()
+                    gen = uname+': '+self.generate_message(user=user)
+                else:
+                    gen = "Unknown user: "+uname
+        
+        elif len(parsed) == 3:
+            return
+            # TODO: Handle minimum length argument
+        else:
+            gen = "markovbot: sorry but im broken right now"
+
+        self.slack_client.api_call("chat.postMessage", channel=output['channel'], text=gen, as_user=True)
+
+    def handle_passive(self, output, session):
+        userid = output['user']
+        user = session.query(User).filter(User.slack_user_id==userid)
+        if not user.count():
+            user = self.create_user(userid)
+        else:
+            user = user.one()
+        user.add_message(output['text'], self.engine)
                                 
     def parse_slack_output(self, output_list):
         Session = sessionmaker(bind=self.engine)
@@ -150,38 +195,13 @@ class MarkovBot():
         if output_list and len(output_list) > 0:
             for output in output_list:
                 if output and 'text' in output and 'user' in output:
-                    text = output['text']
-
-                    # Don't model yourself 
                     if BOT_ID == output['user']:
-                        return
-
+                        continue 
+                    text = output['text']
                     if self.AT_BOT in text:
-                        parsed = text.split(' ')
-                        if len(parsed) == 2:
-                            uname = parsed[1]
-                            if uname == "-all":
-                                gen = "All: "+self.generate_message()
-                            else:
-                                user = session.query(User).filter(User.username==uname.replace('~',''))
-                                if user.count():
-                                    user = user.one()
-                                    gen = uname+': '+self.generate_message(user=user)
-                                else:
-                                    gen = "Unknown user: "+uname
-
-                            self.slack_client.api_call("chat.postMessage", channel=output['channel'], text=gen, as_user=True)
-                        else:
-                            pass
-                            # TODO: Error handling?
+                        self.handle_summon(output)
                     else:
-                        userid = output['user']
-                        user = session.query(User).filter(User.slack_user_id==userid)
-                        if not user.count():
-                            user = self.create_user(userid)
-                        else:
-                            user = user.one()
-                        user.add_message(text, self.engine)
+                        self.handle_passive(output, session)
 
     def init_db(self):
         engine = create_engine('sqlite:///'+self.DB_NAME, echo=False)
