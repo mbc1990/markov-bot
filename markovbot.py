@@ -147,16 +147,8 @@ class MarkovBot():
     def handle_summon(self, output):
         Session = sessionmaker(bind=self.engine)
         session = Session()
-        user_id = 
 
-        response = self.slack.users.list()
-        users = response.body['members']
-        for u in users:
-            if u['id'] == user_id:
-                user = User(u['name'], user_id)
-                session.add(user)
-                session.commit()
-                # TODO: Construct message
+        user_id = output['user']
         text = output['text'] 
         parsed = text.split(' ')
 
