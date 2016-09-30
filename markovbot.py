@@ -154,8 +154,9 @@ class MarkovBot():
 
         if len(parsed) == 2:
             uname = parsed[1]
-            if uname == "-all":
-                gen = "All: "+self.generate_message()
+            if uname == "-random":
+                user = random.choice(session.query(User))
+                gen = uname+': '+self.generate_message(user=user)
             else:
                 user = session.query(User).filter(User.username==uname.replace('~',''))
                 if user.count():
