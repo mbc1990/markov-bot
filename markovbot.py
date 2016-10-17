@@ -181,7 +181,10 @@ class MarkovBot():
         else:
             user = user.one()
         user.add_message(output['text'], self.engine)
-                                
+
+    def handle_captain_planet(self, output):
+        self.slack_client.api_call("chat.postMessage", channel=output['channel'], text="WATER", as_user=True)
+        
     def parse_slack_output(self, output_list):
         Session = sessionmaker(bind=self.engine)
         session = Session()
@@ -191,7 +194,9 @@ class MarkovBot():
                     if BOT_ID == output['user']:
                         continue 
                     text = output['text']
-                    if self.AT_BOT in text:
+                    if "WIND" in text:
+                        self.handle_captain_planet(output)
+                    elif self.AT_BOT in text:
                         self.handle_summon(output)
                     else:
                         self.handle_passive(output, session)
